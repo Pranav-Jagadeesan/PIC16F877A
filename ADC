@@ -1,0 +1,72 @@
+#include <xc.h>
+#include <stdio.h>
+
+#define _XTAL_FREQ 20000000UL
+
+void UART_Init(void)
+{
+    TRISC6 = 0;      // TX pin as output
+    TRISC7 = 1;      // RX pin as input
+
+    SPBRG = 129;     // 9600 baud @ 20MHz
+
+    BRGH = 1;        // High speed
+    SYNC = 0;        // Async mode
+    SPEN = 1;        // Enable serial port
+
+    TXEN = 1;        // Enable transmitter
+    CREN = 1;        // Enable receiver
+}
+
+void UART_SendChar(char c)
+{
+    while(TXIF == 0);
+    TXREG = c;
+}
+
+void UART_SendString(const char *s)
+{
+    while(*s)
+    {
+        UART_SendChar(*s++);
+    }
+}
+
+void adc(void){
+    TRISA1 = 1;
+    ADCON1 = 0x80;
+    ADCON0 = 0x89;
+}
+
+unsigned int read(unsigned char M){
+    unsigned int output;
+    ADCON0 &= 0xC5;
+    ADCON0 |= (1 << 3);   // AN1 / RA1 only
+    __delay_us(20);
+    GO_DONE = 1;
+    while(GO_DONE);
+    output = ((unsigned int)ADRESH << 8) | ADRESL;
+    return output;
+}
+
+void main(void)
+{
+    unsigned int adcValue;
+    char uartBuffer[30];
+
+    UART_Init();
+    adc();
+
+    UART_SendString("\r\nADC Started\r\n");
+
+    while(1)
+    {
+        adcValue = read(1);
+
+        sprintf(uartBuffer, "ADC Value = %u\r\n", adcValue);
+
+        UART_SendString(uartBuffer);
+
+        __delay_ms(500);
+    }
+}
